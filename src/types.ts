@@ -13,9 +13,9 @@ export type Handlers<T extends Methods> = {
 
 export type JsonRpcId = string | number | null | undefined;
 
-export interface JSONRPCRequest<T extends string, U> {
+export interface JSONRPCRequest {
   jsonrpc: "2.0";
   id?: JsonRpcId;
-  method: T;
-  params: U;
+  method: string;
+  params: unknown;
 }

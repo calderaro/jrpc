@@ -1,29 +1,61 @@
 import http from "http";
 import { JSONBodyParser } from "./parser";
-import { Methods, Handlers } from "./types";
+import { Methods, Handlers, JSONRPCRequest, JsonRpcId } from "./types";
+
+function type(obj: any): string {
+  return Object.prototype.toString
+    .apply(obj)
+    .replace(/\[object (.+)\]/i, "$1")
+    .toLowerCase();
+}
+
+function isType(input: any, test: string[]) {
+  return test.includes(type(input));
+}
+
+function isString(obj: any): obj is string {
+  return isType(obj, ["string"]);
+}
+
+function isJsonRpcId(input: any): input is JsonRpcId {
+  return isType(input, ["string", "number", "undefined", "null"]);
+}
+
+function validateRequest(data: unknown): JSONRPCRequest {
+  if (!data || typeof data !== "object") {
+    throw new InvalidRequest();
+  }
+
+  const { jsonrpc, method, params, id } = data as Record<string, unknown>;
+
+  if (
+    !jsonrpc ||
+    jsonrpc !== "2.0" ||
+    !method ||
+    !isString(method) ||
+    !isJsonRpcId(id)
+  ) {
+    throw new InvalidRequest();
+  }
+
+  return {
+    jsonrpc,
+    method,
+    params,
+    id,
+  };
+}
 
 export async function requestHandler<T extends Methods>(
   methods: Handlers<T>,
-  request: {
-    jsonrpc: "2.0";
-    method: string;
-    params: any;
-    id: string;
-  }
+  request: unknown
 ) {
   try {
-    const jsonrpc = request.jsonrpc;
-    const method = request.method;
-    const params = request.params;
-    const id = request.id;
-
-    if (!jsonrpc || jsonrpc !== "2.0" || !method) {
-      throw new InvalidRequest();
-    }
+    const { method, params, id } = validateRequest(request);
 
     const handler = methods[method];
 
-    if (!handler) {
+    if (!methods) {
       throw new NotFound();
     }
 
