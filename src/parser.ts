@@ -6,7 +6,7 @@ export const JSONBodyParser = (stream: http.IncomingMessage) => {
   return new Promise<Record<string, unknown>>((resolve, reject) => {
     const requestMethod = stream.method;
     const contentType = stream.headers["content-type"];
-    const contentLength = stream.headers["content-length"] || 0;
+    const contentLength = Number(stream.headers["content-length"]) || 0;
 
     if (requestMethod !== "POST") {
       done(new Error("invalid http method"), null);
@@ -19,7 +19,12 @@ export const JSONBodyParser = (stream: http.IncomingMessage) => {
     }
 
     if (contentLength > limit) {
-      done(new Error("413 - entity too large"), null);
+      done(new Error("entity too large"), null);
+      return;
+    }
+
+    if (contentLength < 1) {
+      done(new Error("request can not be empty"), null);
       return;
     }
 
@@ -38,7 +43,7 @@ export const JSONBodyParser = (stream: http.IncomingMessage) => {
       length += chunk.length;
 
       if (length > limit) {
-        done(new Error("413 - entity too large"), null);
+        done(new Error("entity too large"), null);
       }
     }
 
@@ -46,15 +51,21 @@ export const JSONBodyParser = (stream: http.IncomingMessage) => {
       if (complete) return;
       if (err) return done(err, null);
 
-      if (length !== null && length !== length) {
+      if (!length) {
+        done(new Error("request can not be empty"), null);
+        return;
+      }
+
+      if (length !== Number(contentLength)) {
         done(new Error("request size did not match content length"), null);
-      } else {
-        try {
-          const parsedData = JSON.parse(buffer);
-          done(null, parsedData);
-        } catch (err) {
-          done(err, null);
-        }
+        return;
+      }
+
+      try {
+        const parsedData = JSON.parse(buffer);
+        done(null, parsedData);
+      } catch (err) {
+        done(err, null);
       }
     }
 
